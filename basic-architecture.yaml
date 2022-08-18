@@ -1,0 +1,89 @@
+Resources:
+  DefaultVPC:
+    Type: AWS::EC2::VPC
+      Properties:
+        CidrBlock: 10.101.0.0/16
+        EnableDnsSupport: true
+        EnableDnsHostnames: true
+        Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPC
+  
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    DependesOn: DefaultVPC
+  
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref DefaultVPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.100.1.0/24
+      VpcId: !Ref DefaultVPC
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-PublicSubnet
+
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.100.10.0/24
+      VpcId: !Ref DefaultVPC
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-PrivateSubnet
+
+  # Creating the ElasticIp for the NAT GW
+  NATGatewayElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: DefaultVPC
+
+  # Creating the NAT GW
+  NATGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NATGatewayElasticIp.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+      - Key: Name
+        Value: !Join ['', ["NAT-", !Ref "AWS::StackName" ]]
+
+  # Creating the Private Route Table
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref DefaultVPC
+      Tags:
+      - Key: Name
+        Value: PrivateRouteTable
+  
+  # Creating the Private Route that Connecting to the Route Table and to the NATGateway
+  PrivateRoute-1:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGateway
+
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref DefaultVPC
+      Tags:
+      - Key: Name
+        Value: PublicRouteTable 
+
+  PublicRoute-1:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
