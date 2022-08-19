@@ -2,5 +2,14 @@
 
 Simple AWS Architecture using AWS Cloud Formation
 
-:warning::construction: **Work In Progress** :construction::warning:
+# Structure Propose
 
+<p align="center">
+ <img src="propose.png" alt="propose"/> 
+</p>
+
+# Cloud Formation Design Result
+
+<p align="center">
+ <img src="designer.png" alt="propose"/> 
+</p>
