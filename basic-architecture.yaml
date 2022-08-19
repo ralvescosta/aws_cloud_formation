@@ -1,13 +1,13 @@
 Resources:
   DefaultVPC:
     Type: AWS::EC2::VPC
-      Properties:
-        CidrBlock: 10.101.0.0/16
-        EnableDnsSupport: true
-        EnableDnsHostnames: true
-        Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-VPC
+    Properties:
+      CidrBlock: 10.101.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-VPC
   
   InternetGateway:
     Type: AWS::EC2::InternetGateway
@@ -143,6 +143,7 @@ Resources:
       SecurityGroupId:
         - !Ref WebSecGroup
       SubnetId: !Ref PublicSubnet
+      AllocationId: !GetAtt WebServerElasticIp.AllocationId
       Tags:
       - Key: Name
         Value: !Sub ${AWS::StackName}-WebInstance
