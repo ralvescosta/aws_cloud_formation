@@ -44,7 +44,6 @@ Resources:
     Type: AWS::EC2::EIP
     Properties:
       Domain: DefaultVPC
-
   # Creating the NAT GW
   NATGateway:
     Type: AWS::EC2::NatGateway
@@ -62,8 +61,7 @@ Resources:
       VpcId: !Ref DefaultVPC
       Tags:
       - Key: Name
-        Value: PrivateRouteTable
-  
+        Value: !Sub ${AWS::StackName}-PrivateRouteTable
   # Creating the Private Route that Connecting to the Route Table and to the NATGateway
   PrivateRoute-1:
     Type: AWS::EC2::Route
@@ -71,19 +69,133 @@ Resources:
       RouteTableId: !Ref PrivateRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NATGateway
+  # Associating the Private Route table with the Private Subnet
+  PrivateRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet
 
-
+  # Creating the Public Route Table
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref DefaultVPC
       Tags:
       - Key: Name
-        Value: PublicRouteTable 
-
+        Value: !Sub ${AWS::StackName}-PublicRouteTable
+  # Creating the Public Route that Connecting to the Route Table and to the InternetGateway
   PublicRoute-1:
     Type: AWS::EC2::Route
     Properties:
       RouteTableId: !Ref PublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
+  # Associating the Public Route table with the Public Subnet
+  PublicRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet
+
+  # Creating the Web Security Group
+  WebSecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: Webservers
+      GroupDescription: Sec Group for the web servers
+      VpcId: !Ref DefaultVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-WebSecGroup
+  # Creating the Webserver Elastic IP
+  WebServerElasticIp:
+    Type: AWS::EC2:EIP
+    Properties:
+      InstanceId: !Ref WebInstance
+      Domain: !Ref DefaultVPC
+  # Creating Instance
+  WebServerInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      BlockDeviceMapping:
+        - DeviceName: "/dev/sda1"
+          Ebs:
+            VolumeSize: 24
+            VolumeType: gps
+      InstanceType: t2.nano
+      ImageId: ami-052efd3df9dad4825
+      KeyName: default
+      Monitoring: true
+      SecurityGroupId:
+        - !Ref WebSecGroup
+      SubnetId: !Ref PublicSubnet
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-WebInstance
+
+  # Creating the DB Security Group
+  DBSecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: Database
+      GroupDescription: Sec Group for DB
+      VpcId: !Ref DefaultVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-DbSecGroup
+  # Creating DB Volume
+  DBVolume:
+    Type: AWS::EC2::Volume
+    DeletionPolice: Snapshot
+    Properties:
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Size: 64
+      VolumeType: gp2
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-DbVolume
+  # Creating Instance
+  DBInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      BlockDeviceMapping:
+        - DeviceName: "/dev/sda1"
+          Ebs:
+            VolumeSize: 24
+            VolumeType: gps
+      InstanceType: t2.nano
+      ImageId: ami-052efd3df9dad4825
+      KeyName: default
+      Monitoring: true
+      SecurityGroupId:
+        - !Ref DBSecGroup
+      SubnetId: !Ref PrivateSubnet
+      Volumes:
+        - Device: "/dev/sdf"
+          VolumeId: !Ref DBVolume
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-DbInstance
